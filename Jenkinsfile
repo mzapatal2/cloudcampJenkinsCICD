@@ -1,25 +1,43 @@
 #!/usr/bin/env groovy
 //comment
 node ('docker&&linux'){
-    stage('Checkout') {
+    checkoutFromRepo('main', 'https://github.com/mzapatal2/cloudcampJenkinsCICD.git', 'git-credentials')
 
-        checkout scmGit(
-                        branches: 
-                        [[name: 'main']], 
-                        extensions: [], 
-                        userRemoteConfigs: [[url: 'https://github.com/mzapatal2/cloudcampJenkinsCICD.git']]
-                        ) 
-        
-    }
-
-    stage ('Build') {
-        sh 'exec docker build -t "hello-world-python" -f _scm_docker/Dockerfile _scm_docker/'
-    }
+    buildDockerfile("hello-world-python:latest")
+    
     stage ('Push') {
         sh 'aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 851725481871.dkr.ecr.us-east-1.amazonaws.com'
         sh 'docker tag hello-world-python:latest 851725481871.dkr.ecr.us-east-1.amazonaws.com/hello-world-python:1.0.0-beta.2'
         sh 'docker tag hello-world-python:latest 851725481871.dkr.ecr.us-east-1.amazonaws.com/hello-world-python:latest'
         sh 'docker push --all-tags 851725481871.dkr.ecr.us-east-1.amazonaws.com/hello-world-python'
         
+    }
+}
+
+// Metodos
+def checkoutFromRepo(branch, repoURL, credentialsID)
+{
+    stage('Checkout') {
+        checkout scmGit(
+                        branches: 
+                        [[name: branch]], 
+                        extensions: [], 
+                        userRemoteConfigs: [[url: repoURL, credentialsId: credentialsID]]
+                        )
+    }
+}
+
+def buildDockerfile(tag, context=".", fileArg="")
+{
+    if (fileArg=="")
+    {
+        path=""
+    }
+    else{
+        path="-f ${fileArg}"
+    }
+
+    stage ('Build') {
+        sh "exec docker build -t ${tag} ${path} ${context}"
     }
 }
